@@ -9,13 +9,18 @@ pipeline {
     environment {
         APP_NAME = 'calculator-app'
         VERSION = '1.0.0'
+        // Use a local directory for pip installations
+        PIP_TARGET = './pip_packages'
+        PYTHONPATH = '$PYTHONPATH:./pip_packages'
     }
     stages {
         stage('Setup') {
             steps {
                 echo "Setting up ${env.APP_NAME}"
                 sh 'python --version'
-                sh 'pip install -r requirements.txt'
+                sh 'mkdir -p ${PIP_TARGET}'
+                // Install dependencies with --no-cache-dir to save space and --user for permissions
+                sh 'pip install --no-cache-dir --user -r requirements.txt'
             }
         }
         
@@ -23,7 +28,8 @@ pipeline {
             steps {
                 echo 'Running unit tests'
                 sh 'mkdir -p test-reports'
-                sh 'pytest --junitxml=test-reports/test-results.xml'
+                sh 'pip install --no-cache-dir --user pytest'
+                sh 'python -m pytest --junitxml=test-reports/test-results.xml'
             }
             post {
                 always {
@@ -36,6 +42,7 @@ pipeline {
             steps {
                 echo "Building Python package"
                 sh 'mkdir -p dist'
+                sh 'pip install --no-cache-dir --user build'
                 sh 'python -m build || echo "Build step completed with issues"'
             }
         }
