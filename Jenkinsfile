@@ -1,6 +1,9 @@
 pipeline {
     agent {
-        docker { image 'python:3.13.2-alpine3.21' }
+        docker { 
+            image 'python:3.13.2-alpine3.21'
+            args '-v $HOME/.cache:/root/.cache'
+        }
     }
     options {
         skipStagesAfterUnstable()
@@ -9,24 +12,32 @@ pipeline {
     environment {
         APP_NAME = 'calculator-app'
         VERSION = '1.0.0'
+        // Create a virtual environment inside the workspace
+        VENV_PATH = './venv'
+        PATH = "${WORKSPACE}/${VENV_PATH}/bin:${PATH}"
     }
     stages {
         stage('Setup') {
             steps {
                 echo "Setting up ${env.APP_NAME}"
-                sh 'python --version'
-                // Use --user flag only
-                sh 'pip install --no-cache-dir --user -r requirements.txt'
+                sh '''
+                   python --version
+                   python -m venv ${VENV_PATH}
+                   . ${VENV_PATH}/bin/activate
+                   pip install --upgrade pip
+                   pip install -r requirements.txt
+                '''
             }
         }
         
         stage('Test') {
             steps {
                 echo 'Running unit tests'
-                sh 'mkdir -p test-reports'
-                sh 'pip install --no-cache-dir --user pytest'
-                // Make sure pytest can find the packages
-                sh 'PYTHONPATH=$PWD python -m pytest --junitxml=test-reports/test-results.xml'
+                sh '''
+                   . ${VENV_PATH}/bin/activate
+                   mkdir -p test-reports
+                   pytest --junitxml=test-reports/test-results.xml
+                '''
             }
             post {
                 always {
@@ -38,17 +49,21 @@ pipeline {
         stage('Build') {
             steps {
                 echo "Building Python package"
-                sh 'mkdir -p dist'
-                sh 'pip install --no-cache-dir --user build'
-                sh 'python -m build || echo "Build step completed with issues"'
+                sh '''
+                   . ${VENV_PATH}/bin/activate
+                   mkdir -p dist
+                   python -m build || echo "Build step completed with issues"
+                '''
             }
         }
         
         stage('Deploy - Staging') {
             steps {
                 echo "Deploying to staging environment"
-                // Set PYTHONPATH explicitly for this step
-                sh 'PYTHONPATH=$PWD python -c "from my_app.main import add; print(f\"2 + 2 = {add(2, 2)}\")"'
+                sh '''
+                   . ${VENV_PATH}/bin/activate
+                   python -c "from my_app.main import add; print(f\\"2 + 2 = {add(2, 2)}\\")"
+                '''
             }
         }
         
