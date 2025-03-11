@@ -10,17 +10,14 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh 'pytest --junitxml=test-results.xml'
+                sh 'mkdir -p test-reports'
+                sh 'pytest --junitxml=test-reports/test-results.xml'
             }
         }
     }
     post {
         always {
-            junit 'test-results.xml'
-        }
-        success {
-            archiveArtifacts artifacts: 'dist/*.whl', fingerprint: true
-            sh 'python -m build'
+            junit allowEmptyResults: true, testResults: 'test-reports/*.xml'
         }
     }
 }
