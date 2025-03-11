@@ -9,17 +9,13 @@ pipeline {
     environment {
         APP_NAME = 'calculator-app'
         VERSION = '1.0.0'
-        // Use a local directory for pip installations
-        PIP_TARGET = './pip_packages'
-        PYTHONPATH = '$PYTHONPATH:./pip_packages'
     }
     stages {
         stage('Setup') {
             steps {
                 echo "Setting up ${env.APP_NAME}"
                 sh 'python --version'
-                sh 'mkdir -p ${PIP_TARGET}'
-                // Install dependencies with --no-cache-dir to save space and --user for permissions
+                // Use --user flag only
                 sh 'pip install --no-cache-dir --user -r requirements.txt'
             }
         }
@@ -29,7 +25,8 @@ pipeline {
                 echo 'Running unit tests'
                 sh 'mkdir -p test-reports'
                 sh 'pip install --no-cache-dir --user pytest'
-                sh 'python -m pytest --junitxml=test-reports/test-results.xml'
+                // Make sure pytest can find the packages
+                sh 'PYTHONPATH=$PWD python -m pytest --junitxml=test-reports/test-results.xml'
             }
             post {
                 always {
@@ -50,7 +47,8 @@ pipeline {
         stage('Deploy - Staging') {
             steps {
                 echo "Deploying to staging environment"
-                sh 'python -c "from my_app.main import add; print(f\"2 + 2 = {add(2, 2)}\")"'
+                // Set PYTHONPATH explicitly for this step
+                sh 'PYTHONPATH=$PWD python -c "from my_app.main import add; print(f\"2 + 2 = {add(2, 2)}\")"'
             }
         }
         
